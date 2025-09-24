@@ -1,0 +1,6 @@
+pytorch == 2.8.0
+
+numpy
+pandas
+matplotlib
+sklearn
