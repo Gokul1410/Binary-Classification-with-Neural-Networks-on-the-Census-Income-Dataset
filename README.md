@@ -2,150 +2,110 @@
 ## Name : Gokul C
 ## Reg no : 212223240040
 
-### Program:
+## Procedure:
+## Step 1: Import Libraries
 
-```
-import torch
-import torch.nn as nn
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-from sklearn.utils import shuffle
+The program first imports the necessary Python libraries:
 
-df = pd.read_csv('income.csv')
+PyTorch for building and training the model.
 
-# Check the length and preview of the dataframe
-print(f"Length of the dataset: {len(df)}")
-print("First 5 rows of the dataset:")
-print(df.head())
+NumPy and Pandas for handling and processing the dataset.
 
-# Define categorical and continuous columns
-cat_cols = ['sex', 'education', 'marital-status', 'workclass', 'occupation']
-cont_cols = ['age', 'hours-per-week']
-y_col = ['label']
+Matplotlib for visualization.
 
-# Print out column counts
-print(f'cat_cols has {len(cat_cols)} columns')
-print(f'cont_cols has {len(cont_cols)} columns')
-print(f'y_col has {len(y_col)} column')
+scikit-learn’s shuffle function to randomize dataset rows.
 
-# Convert categorical columns to category type
-for col in cat_cols:
-    df[col] = df[col].astype('category')
+## Step 2: Load and Inspect Dataset
 
-# Shuffle the data
-df = shuffle(df, random_state=101)
-df.reset_index(drop=True, inplace=True)
+The dataset income.csv is loaded into a Pandas DataFrame.
+The program prints:
 
-# Preview the first 5 rows of the shuffled dataset
-print(df.head())
+The total number of rows in the dataset.
 
-# Create embedding sizes for each categorical column
-cat_szs = [len(df[col].cat.categories) for col in cat_cols]
-emb_szs = [(size, min(50, (size+1)//2)) for size in cat_szs]
-print(f"Embedding sizes: {emb_szs}")
+The first five rows for preview.
 
-# Convert categorical data to numeric codes
-cats = torch.tensor(np.stack([df[col].cat.codes.values for col in cat_cols], axis=1), dtype=torch.long)
+## Step 3: Define Columns
 
-# Convert continuous data to tensors
-conts = torch.tensor(np.stack([df[col].values for col in cont_cols], axis=1), dtype=torch.float32)
+The dataset columns are divided into three types:
 
-# Convert labels to tensor
-y = torch.tensor(df[y_col].values).flatten()
+Categorical columns (e.g., sex, education, occupation).
 
-# Split data into training and test sets
-b = 30000  # batch size
-t = 5000   # test size
+Continuous columns (e.g., age, hours-per-week).
 
-cat_train = cats[:b-t]
-cat_test  = cats[b-t:b]
-con_train = conts[:b-t]
-con_test  = conts[b-t:b]
-y_train   = y[:b-t]
-y_test    = y[b-t:b]
+Target column (label column).
 
-print(f"cat_train shape: {cat_train.shape}")
-print(f"con_train shape: {con_train.shape}")
-print(f"y_train shape: {y_train.shape}")
+## Step 4: Convert Categories and Shuffle Data
 
-class TabularModel(nn.Module):
-    def __init__(self, emb_szs, n_cont, out_sz, layers, p=0.5):
-        super().__init__()
-        
-        # Create embedding layers for categorical columns
-        self.embeds = nn.ModuleList([nn.Embedding(ni, nf) for ni, nf in emb_szs])
-        
-        # Dropout for embeddings and batch normalization for continuous columns
-        self.emb_drop = nn.Dropout(p)
-        self.bn_cont = nn.BatchNorm1d(n_cont)
+Each categorical column is converted into category type.
+The dataset is shuffled to remove any bias due to ordering.
+The index is reset after shuffling.
 
-        # Build hidden layers
-        layerlist = []
-        n_emb = sum((nf for ni, nf in emb_szs))
-        n_in = n_emb + n_cont
+## Step 5: Create Embedding Sizes
 
-        for i in layers:
-            layerlist.append(nn.Linear(n_in, i))
-            layerlist.append(nn.ReLU(inplace=True))
-            layerlist.append(nn.BatchNorm1d(i))
-            layerlist.append(nn.Dropout(p))
-            n_in = i
-        layerlist.append(nn.Linear(layers[-1], out_sz))
-        
-        self.layers = nn.Sequential(*layerlist)
+The number of unique categories in each categorical column is calculated.
+For each categorical column, an embedding size is created, where:
 
-    def forward(self, x_cat, x_cont):
-        # Process categorical data through embedding layers
-        embeddings = [e(x_cat[:, i]) for i, e in enumerate(self.embeds)]
-        x = torch.cat(embeddings, 1)
-        x = self.emb_drop(x)
+Input dimension = number of unique categories.
 
-        # Process continuous data through batch normalization
-        x_cont = self.bn_cont(x_cont)
-        x = torch.cat([x, x_cont], 1)
+Output dimension = smaller dense representation (limited to max 50).
 
-        # Pass through the hidden layers
-        x = self.layers(x)
-        return x
-# Initialize the model, loss function, and optimizer
-torch.manual_seed(33)
-model = TabularModel(emb_szs, n_cont=len(cont_cols), out_sz=2, layers=[50], p=0.4)
+## Step 6: Convert Data to Tensors
 
-# Use CrossEntropyLoss for classification and Adam optimizer
-criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+The dataset is converted into PyTorch tensors:
 
-print(model)# Training loop
-epochs = 300
-losses = []
+Categorical columns are transformed into numeric codes.
 
-for i in range(1, epochs + 1):
-    # Forward pass
-    y_pred = model(cat_train, con_train)
-    
-    # Compute loss
-    loss = criterion(y_pred, y_train)
-    losses.append(loss.item())
+Continuous columns are converted into floating-point tensors.
 
-    # Print loss every 25 epochs
-    if i % 25 == 1:
-        print(f'Epoch {i:3} Loss: {loss.item():.8f}')
-    
-    # Backpropagation
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
+The target column is flattened into a label tensor.
 
-# Plot the loss curve
-plt.plot(losses)
-plt.xlabel('Epoch')
-plt.ylabel('Cross-Entropy Loss')
-plt.title('Training Loss Curve')
-plt.show()
+## Step 7: Split Train and Test
 
-```
+The dataset is divided into:
 
+Training set → the first portion of the data.
+
+Test set → the last portion of the data.
+
+This ensures that the model is trained on one part and tested on another.
+
+## Step 8: Define Model
+
+A custom neural network class TabularModel is created.
+It consists of:
+
+Embedding layers for categorical variables.
+
+Dropout for regularization.
+
+Batch Normalization for continuous variables.
+
+Fully connected layers with ReLU activation, BatchNorm, Dropout, and finally a Linear layer producing two outputs (binary classification).
+
+## Step 9: Initialize Model, Loss, and Optimizer
+
+The model is initialized with the embedding sizes, number of continuous features, and output size (2).
+
+The loss function is set to CrossEntropyLoss, since this is a classification problem.
+
+The optimizer chosen is Adam, with a learning rate of 0.001.
+
+## Step 10: Training Loop
+
+The model is trained for 300 epochs. In each epoch:
+
+The model performs a forward pass on the training data.
+
+The loss between predictions and true labels is calculated.
+
+Gradients are reset, backpropagation is performed, and model weights are updated.
+
+The loss is recorded, and printed every 25 epochs.
+
+## Step 11: Plot Training Loss
+
+After training, the program plots a loss curve against epochs.
+This shows how the model’s error decreases over time, indicating whether learning is successful.
 ### Output :
 
-<img width="774" height="568" alt="image" src="https://github.com/user-attachments/assets/5839dcd4-6824-4ae7-88e4-0c8f19af4b9e" />
+<img width="774" height="568" alt="Screenshot 2025-09-24 090925" src="https://github.com/user-attachments/assets/ba448d0b-1d91-46c8-ad1a-1ca433dca4a6" />
